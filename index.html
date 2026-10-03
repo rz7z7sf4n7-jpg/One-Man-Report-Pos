@@ -1,0 +1,707 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>ONE MAN REPORT POS • Cloud</title>
+<style>
+*{box-sizing:border-box}body{font-family:Arial,sans-serif;margin:0;background:linear-gradient(135deg,#eef4ff,#f8fafc);color:#1f2937}
+header{background:linear-gradient(135deg,#0d47a1,#1976d2);color:#fff;padding:24px;text-align:center;box-shadow:0 4px 18px #0002}
+header h1{margin:0 0 6px;font-size:28px}.box{max-width:1150px;margin:18px auto;background:#fff;padding:20px;border-radius:16px;box-shadow:0 6px 22px #00000012}
+.tabs{display:flex;flex-wrap:wrap;gap:6px}.tabs button{background:#263238;transition:.2s}.tabs button:hover{transform:translateY(-1px);background:#1565c0}
+input,select,button{padding:9px;margin:4px;border-radius:5px;border:1px solid #bbb}button{background:#1565c0;color:#fff;border:0;cursor:pointer}
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:14px}.stat{padding:18px;background:linear-gradient(135deg,#eef5ff,#f8fbff);border:1px solid #dbeafe;border-radius:14px;box-shadow:0 3px 12px #0000000b}.stat b{font-size:22px}
+.summary{margin-top:16px}.badge{display:inline-block;padding:5px 9px;border-radius:999px;font-size:12px;font-weight:bold}
+table{width:100%;border-collapse:collapse;margin-top:12px;overflow:hidden;border-radius:10px}th,td{border:1px solid #e5e7eb;padding:10px}th{background:#f1f5f9}tr:nth-child(even){background:#fafafa}.hide{display:none}
+.tabs button{background:#455a64}.danger{background:#c62828!important}.green{background:#2e7d32!important}.muted{color:#64748b}.cloud{background:#e8f5e9;border:1px solid #81c784;padding:10px;border-radius:10px;margin-bottom:12px}
+#toast{position:fixed;right:18px;bottom:18px;z-index:99999;max-width:420px;padding:13px 18px;border-radius:12px;background:#172033;color:#fff;display:none;box-shadow:0 12px 30px #0003}
+h2{margin-top:0;color:#0f3d7a}h3{color:#234}.section-head{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap}.pill{display:inline-flex;align-items:center;gap:6px;padding:6px 10px;border-radius:999px;background:#eef5ff;color:#0d47a1;font-size:12px;font-weight:700}.debt-card{background:linear-gradient(135deg,#fff8e1,#fff);border:1px solid #ffe0a3}.overdue{color:#b71c1c;font-weight:700}.paid{color:#2e7d32;font-weight:700}.toolbar{background:#f8fafc;border:1px solid #e5e7eb;padding:12px;border-radius:12px;margin-top:12px}.actions{white-space:nowrap}
+@media(max-width:600px){header{padding:16px}header h1{font-size:22px}.box{margin:8px;padding:12px}input,select,button{width:auto;max-width:100%}table{font-size:12px}th,td{padding:7px}}
+@media print{
+  @page{size:A4 portrait;margin:8mm}
+  .tabs,#login,#toast,.no-print{display:none!important}
+  .box{box-shadow:none;margin:0;max-width:none}
+  .hide{display:none!important}
+  body{background:#fff!important}
+  table{page-break-inside:avoid}
+  tr,td,th{page-break-inside:avoid}
+}
+</style>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+
+<meta name="theme-color" content="#0d47a1">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="One Man POS">
+<link rel="manifest" href="manifest.webmanifest">
+</head>
+<body>
+<div id="toast"></div>
+
+<div id="login" class="box" style="max-width:400px;margin-top:70px">
+<h2>ONE MAN REPORT POS</h2>
+<p><b>ONLINE POS LOGIN</b></p>
+<div class="cloud">☁️ <b>Cloud system:</b> Login from your computer or phone and use the same data.</div>
+<input id="loginEmail" placeholder="Email / Username" style="width:90%">
+<input id="loginPassword" type="password" placeholder="Password" style="width:90%">
+<button onclick="login()" style="width:95%">Login</button>
+<p id="err" style="color:#c62828"></p>
+<small>Use the Supabase Auth email/password created for this POS.</small>
+</div>
+
+<div id="app" class="hide">
+<header><h1>ONE MAN REPORT POS</h1><div>TIN: 123043553 | Bariadi, Simiyu | Tel: 0717768543</div><div id="cloudStatus" style="margin-top:8px;font-size:13px">☁️ Connecting...</div></header>
+<div class="box tabs no-print">
+<button onclick="tab('dash')">📊 Dashboard</button><button onclick="tab('sale')">🛒 Sales</button><button onclick="tab('stock')">📦 Stock</button><button onclick="tab('expense')">🧾 Expenses</button><button onclick="tab('debt')">💳 Debts</button><button onclick="tab('report')">📈 Reports</button><button onclick="logout()">🚪 Logout</button>
+</div>
+
+<section id="dash" class="box"><h2>Dashboard</h2>
+<div id="stockAlert" class="stat" style="background:#fff3cd;margin-bottom:10px">Stock alerts will appear here.</div>
+<div class="grid">
+<div class="stat">💰 Total Sales Today<br><b id="ds">0</b> TZS</div><div class="stat">📦 Total Items Sold Today<br><b id="di">0</b></div>
+<div class="stat">💵 Cash Today<br><b id="dcash">0</b> TZS</div><div class="stat">📱 Merchant Today<br><b id="dmerchant">0</b> TZS</div>
+<div class="stat">💳 Lipa Today<br><b id="dlipa">0</b> TZS</div><div class="stat">🧾 Expenses Today<br><b id="de">0</b> TZS</div>
+<div class="stat">📈 Profit of the Day / Sales Remaining After Expense<br><b id="dp">0</b> TZS</div>
+<div class="stat debt-card">💳 Outstanding Debts<br><b id="ddebts">0</b> TZS</div>
+</div>
+<div class="summary" style="margin-top:15px;padding:15px;background:#f8fafc"><b>Today's Sales Summary</b><div id="todaySummary" style="margin-top:8px">No sales yet today.</div></div>
+</section>
+
+<section id="sale" class="box hide"><h2>New Sale</h2>
+<label>Sale Date <input id="saleDate" type="date"></label>
+<select id="prod" onchange="autoPrice()" style="min-width:260px"><option value="">Select product</option></select>
+<input id="qty" type="number" min="1" value="1" placeholder="Quantity"><input id="price" type="number" readonly placeholder="Price">
+<select id="pay"><option>Cash</option><option>Merchant</option><option>Lipa</option></select>
+<button onclick="sell()">Save Sale</button><button onclick="printLastReceipt()" class="green">Print Last Receipt</button>
+<p class="muted">Unaweza kuweka mauzo ya leo au ya miezi iliyopita kwa kuchagua tarehe. Data zilizopo hazibadilishwi.</p>
+<div style="margin-top:12px;padding:12px;background:#f8fafc;border-radius:10px">
+  <b>Sales History</b><br>
+  <label>From <input id="salesFrom" type="date"></label>
+  <label>To <input id="salesTo" type="date"></label>
+  <button onclick="generateSales()">Generate</button>
+  <button onclick="printSales()" class="green">Print</button>
+</div>
+<div id="salelist"></div>
+</section>
+
+<section id="stock" class="box hide"><h2>Stock / Products</h2>
+<input id="pn" placeholder="Product name"><input id="bp" type="number" min="0" placeholder="Buying price">
+<input id="pp" type="number" min="0" placeholder="Selling price"><input id="pq" type="number" min="0" placeholder="Stock quantity">
+<input id="pm" type="number" min="0" value="5" placeholder="Minimum stock"><button onclick="addProduct()">Add / Update Product</button>
+<div id="stocklist"></div><h3>Buying Price / Purchases</h3><div id="buylist"></div>
+</section>
+
+<section id="expense" class="box hide"><h2>Expense</h2>
+<label>Expense Date <input id="expenseDate" type="date"></label>
+<select id="expenseCategory">
+<option value="">Chagua aina ya matumizi</option>
+<option>Chakula dukani</option><option>Chakula nyumbani</option><option>Ulinzi malipo</option><option>Usafi malipo</option><option>Boss</option><option>Fungu la kumi</option><option>Nauli</option><option>Salio</option><option>Umeme dukani</option><option>Umeme nyumbani</option><option>Umeme</option><option>Maji</option><option>Internet</option><option>Matumizi mengine</option>
+</select>
+<input id="ed" placeholder="Maelezo / Description"><input id="ea" type="number" min="0" placeholder="Amount"><button onclick="addExpense()">Save Expense</button>
+<div style="margin-top:12px;padding:12px;background:#f8fafc;border-radius:10px">
+  <b>Expense History</b><br>
+  <label>From <input id="expenseFrom" type="date"></label>
+  <label>To <input id="expenseTo" type="date"></label>
+  <button onclick="generateExpenses()">Generate</button>
+  <button onclick="printExpenses()" class="green">Print</button>
+</div>
+<div id="explist"></div>
+</section>
+
+<section id="report" class="box hide"><h2>Reports</h2>
+<label>From <input id="from" type="date"></label><label>To <input id="to" type="date"></label>
+<button onclick="report()">Generate</button><button onclick="window.print()">Print</button>
+<div class="grid"><div class="stat">💰 Total Sales<br><b id="rs">0</b> TZS</div><div class="stat">📦 Total Items Sold<br><b id="ri">0</b></div>
+<div class="stat">💵 Cash<br><b id="rcash">0</b> TZS</div><div class="stat">📱 Merchant<br><b id="rmerchant">0</b> TZS</div>
+<div class="stat">💳 Lipa<br><b id="rlipa">0</b> TZS</div><div class="stat">🧾 Expenses<br><b id="re">0</b> TZS</div><div class="stat">📈 Profit<br><b id="rp">0</b> TZS</div></div>
+<div id="rdetails"></div><div id="yearComparison" style="margin-top:16px"></div>
+</section>
+
+<section id="debt" class="box hide">
+  <div class="section-head">
+    <div><h2>💳 Debts / Madeni</h2><span class="pill">Stock inaenda sawa na Sales</span></div>
+    <button onclick="checkDebtAlerts()" class="green">🔔 Check Alerts</button>
+  </div>
+
+  <div class="toolbar">
+    <b>Record New Debt</b><br>
+    <input id="debtCustomer" placeholder="Jina la mteja">
+    <input id="debtPhone" placeholder="Namba ya simu">
+    <select id="debtProduct" onchange="autoDebtPrice()" style="min-width:240px"><option value="">Chagua bidhaa</option></select>
+    <input id="debtQty" type="number" min="1" value="1" placeholder="Qty">
+    <input id="debtPrice" type="number" readonly placeholder="Bei">
+    <label>Tarehe <input id="debtDate" type="date"></label>
+    <label>Muda wa kulipa <input id="debtDue" type="datetime-local"></label>
+    <button onclick="addDebt()">Save Debt</button>
+  </div>
+
+  <div id="debtSummary" class="grid" style="margin-top:14px"></div>
+  <div id="debtlist"></div>
+</section>
+</div>
+
+<script>
+const SUPABASE_URL = 'https://vcyzsscczrzluanbvjhd.supabase.co';
+const SUPABASE_KEY = 'sb_publishable_A_Vf2aPYtI2qCnc3iRdI5Q_ytlRKfRe';
+const client = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+let D={products:[],sales:[],expenses:[],debts:[]};
+let currentUser=null;
+
+function $(id){return document.getElementById(id)}
+function money(x){return Number(x||0).toLocaleString('en-TZ')}
+function tzNow(){ return new Date(new Date().toLocaleString('en-US',{timeZone:'Africa/Dar_es_Salaam'})); }
+function today(){
+  const d=tzNow();
+  return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+}
+function localTZDateTimeISO(v){
+  if(!v)return '';
+  return new Date(v+':00+03:00').toISOString();
+}
+function currentYear(){ return tzNow().getFullYear(); }
+function monthKey(date){ return String(date||'').slice(0,7); }
+function monthLabel(key){
+  const [y,m]=key.split('-').map(Number);
+  return new Date(Date.UTC(y,m-1,1)).toLocaleDateString('en-US',{month:'short',year:'numeric',timeZone:'UTC'});
+}
+function yearMonths(year){ return Array.from({length:12},(_,i)=>`${year}-${String(i+1).padStart(2,'0')}`); }
+function monthlyComparison(year=currentYear()){
+  return yearMonths(year).map(key=>{
+    const sales=D.sales.filter(x=>monthKey(x.date)===key).reduce((a,x)=>a+Number(x.total||0),0);
+    const expenses=D.expenses.filter(x=>monthKey(x.date)===key).reduce((a,x)=>a+Number(x.amount||0),0);
+    return {key,label:monthLabel(key),sales,expenses,net:sales-expenses};
+  });
+}
+function yearTotals(year){
+  const sales=D.sales.filter(x=>String(x.date||'').startsWith(String(year)+'-')).reduce((a,x)=>a+Number(x.total||0),0);
+  const expenses=D.expenses.filter(x=>String(x.date||'').startsWith(String(year)+'-')).reduce((a,x)=>a+Number(x.amount||0),0);
+  return {sales,expenses,net:sales-expenses};
+}
+function pctChange(cur,prev){ if(!prev) return cur?null:0; return ((cur-prev)/prev)*100; }
+function changeText(v){
+  if(v===null)return '<span class="muted">—</span>';
+  const cls=v>0?'overdue':v<0?'paid':'';
+  return `<span class="${cls}">${v>=0?'+':''}${v.toFixed(1)}%</span>`;
+}
+function renderYearComparison(){
+  const year=currentYear(), prevYear=year-1;
+  const rows=monthlyComparison(year), curY=yearTotals(year), prevY=yearTotals(prevYear);
+  const salesYearChange=pctChange(curY.sales,prevY.sales), expYearChange=pctChange(curY.expenses,prevY.expenses), netYearChange=pctChange(curY.net,prevY.net);
+  const totalMonthSales=rows.reduce((a,r)=>a+r.sales,0);
+  const totalMonthExpenses=rows.reduce((a,r)=>a+r.expenses,0);
+  const totalMonthNet=rows.reduce((a,r)=>a+r.net,0);
+  const html=`<div class="toolbar">
+    <div class="section-head"><b>📊 Mauzo & Expenses — Monthly + Yearly Comparison</b><span class="pill">${year}</span></div>
+
+    <h3 style="margin:14px 0 6px">📅 Mauzo na Expenses — Mwezi Mmoja Mmoja</h3>
+    <div style="overflow-x:auto">
+    <table>
+      <tr><th>Mwezi</th><th>Mauzo Yote</th><th>Expenses Zote</th><th>Kilichobaki<br>(Sales − Expense)</th><th>Sales Change</th><th>Expense Change</th></tr>`+
+    rows.map((r,i)=>{
+      const prev=rows[i-1];
+      const sp=pctChange(r.sales,prev?.sales||0), ep=pctChange(r.expenses,prev?.expenses||0);
+      return `<tr><td><b>${r.label}</b></td><td><b>${money(r.sales)} TZS</b></td><td><b>${money(r.expenses)} TZS</b></td><td><b>${money(r.net)} TZS</b></td><td>${changeText(sp)}</td><td>${changeText(ep)}</td></tr>`;
+    }).join('')+
+    `<tr style="font-weight:800"><td>🔢 JUMLA YA ${year}</td><td>${money(totalMonthSales)} TZS</td><td>${money(totalMonthExpenses)} TZS</td><td>${money(totalMonthNet)} TZS</td><td>—</td><td>—</td></tr>
+    </table></div>
+
+    <h3 style="margin:20px 0 6px">📆 Mwaka Mzima — ${year}</h3>
+    <div style="overflow-x:auto">
+    <table>
+      <tr><th>Mwaka</th><th>Mauzo Yote ya Mwaka</th><th>Expenses Zote za Mwaka</th><th>Kilichobaki<br>(Sales − Expense)</th><th>Sales Change</th><th>Expense Change</th></tr>
+      <tr><td><b>${prevYear}</b></td><td>${money(prevY.sales)} TZS</td><td>${money(prevY.expenses)} TZS</td><td>${money(prevY.net)} TZS</td><td>—</td><td>—</td></tr>
+      <tr style="font-weight:800"><td><b>${year}</b></td><td>${money(curY.sales)} TZS</td><td>${money(curY.expenses)} TZS</td><td>${money(curY.net)} TZS</td><td>${changeText(salesYearChange)}</td><td>${changeText(expYearChange)}</td></tr>
+    </table></div>
+
+    <div style="margin-top:12px;padding:12px;border-radius:10px;background:#f5f7f8">
+      <b>📌 Muhtasari wa ${year}:</b><br>
+      Mauzo yote: <b>${money(curY.sales)} TZS</b> &nbsp; | &nbsp;
+      Expenses zote: <b>${money(curY.expenses)} TZS</b> &nbsp; | &nbsp;
+      <b>Kilichobaki: ${money(curY.net)} TZS</b>
+    </div>
+    <div style="margin-top:10px"><b>${year} vs ${prevYear} — Net Change:</b> ${changeText(netYearChange)}</div>
+  </div>`;
+  if($('yearComparison')) $('yearComparison').innerHTML=html;
+}
+
+let lastSystemDate=today();
+function syncCurrentDate(){
+  const t=today();
+  if(t===lastSystemDate)return;
+  lastSystemDate=t;
+
+  // Siku mpya: fields za "leo" zibadilike kwenda tarehe mpya.
+  // Historia ya mauzo/matumizi haifutwi wala kubadilishwa.
+  if($('saleDate')) $('saleDate').value=t;
+  if($('expenseDate')) $('expenseDate').value=t;
+  if($('salesFrom')) $('salesFrom').value=t;
+  if($('salesTo')) $('salesTo').value=t;
+  if($('expenseFrom')) $('expenseFrom').value=t;
+  if($('expenseTo')) $('expenseTo').value=t;
+  if($('debtDate')) $('debtDate').value=t;
+}
+function initDateFilters(){
+  if($('expenseDate'))$('expenseDate').value=today();
+  if($('expenseFrom')&&!$('expenseFrom').value)$('expenseFrom').value=today();
+  if($('expenseTo')&&!$('expenseTo').value)$('expenseTo').value=today();
+  if($('debtDate')&&!$('debtDate').value)$('debtDate').value=today();
+  if($('debtDue')&&!$('debtDue').value){
+    const d=tzNow();
+    d.setDate(d.getDate()+7);
+    const local=`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}T${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`;
+    $('debtDue').value=local;
+  }
+}
+function esc(x){return String(x??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]))}
+function toast(msg,ok=true){let t=$('toast');t.textContent=msg;t.style.background=ok?'#263238':'#b71c1c';t.style.display='block';setTimeout(()=>t.style.display='none',2600)}
+function setStatus(msg){$('cloudStatus').textContent='☁️ '+msg}
+
+async function login(){
+  const ident=$('loginEmail').value.trim(), pass=$('loginPassword').value;
+  $('err').textContent='';
+  if(!ident||!pass){$('err').textContent='Enter email/username and password.';return}
+  // Allows "admin" as a shortcut to the configured Auth email.
+  const email=ident.toLowerCase()==='admin'?'admin@onemanpos.local':ident;
+  const {data,error}=await client.auth.signInWithPassword({email,password:pass});
+  if(error){$('err').textContent=error.message;return}
+  currentUser=data.user; await loginBox();
+}
+async function loginBox(){
+  $('login').classList.add('hide');$('app').classList.remove('hide');
+  setStatus('Loading cloud data...');
+  await loadCloud(); refresh(); toast('Welcome One Man Report POS');
+}
+async function logout(){alert('THANK YOU FOR USING ONE MAN REPORT POS');await client.auth.signOut();location.reload()}
+function tab(x){['dash','sale','stock','expense','debt','report'].forEach(i=>$(i).classList.add('hide'));const el=$(x);if(!el)return;el.classList.remove('hide');if(x==='debt'){renderDebts();checkDebtAlertsSilent()}refresh();el.scrollIntoView({behavior:'smooth',block:'start'})}
+
+async function loadCloud(){
+  setStatus('Syncing...');
+  const [p,s,e,d]=await Promise.all([
+    client.from('products').select('*').order('name'),
+    client.from('sales').select('*').order('created_at',{ascending:false}),
+    client.from('expenses').select('*').order('created_at',{ascending:false}),
+    client.from('debts').select('*').order('created_at',{ascending:false})
+  ]);
+  if(p.error||s.error||e.error){
+    const er=p.error||s.error||e.error; setStatus('Database setup needed'); throw er;
+  }
+  D.products=p.data||[]; D.sales=s.data||[]; D.expenses=e.data||[];
+  D.debts=d.error?[]:(d.data||[]);
+  setStatus(d.error?'Online • synced • Debts table not available':'Online • synced');
+}
+
+async function addProduct(){
+  try {
+  let n=$('pn').value.trim(), buying=+$('bp').value, price=+$('pp').value, stock=+$('pq').value, min=+$('pm').value;
+  if(!n||buying<0||price<0||stock<0||min<0)return alert('Fill product, buying price, selling price, stock and minimum stock');
+  const old=D.products.find(a=>a.name.toLowerCase()===n.toLowerCase());
+  let res;
+  if(old) res=await client.from('products').update({name:n,buying,price,stock,min}).eq('id',old.id);
+  else res=await client.from('products').insert({name:n,buying,price,stock,min});
+  if(res.error)return alert(res.error.message);
+  $('pn').value=$('pp').value=$('pq').value=$('bp').value=$('pm').value='';$('pm').value=5;
+  await loadCloud();refresh();toast(old?'Product updated online':'Product added online');
+  } catch(e) { alert('Product save failed: '+(e?.message||e)); console.error(e); }
+}
+function autoPrice(){let x=D.products.find(a=>a.name===$('prod').value);$('price').value=x?x.price:''}
+
+async function sell(){
+  try {
+   let x=D.products.find(a=>a.name===$('prod').value), q=+$('qty').value;
+   let saleDate=$('saleDate').value || today();
+   if(!x||q<1)return alert('Select product and quantity');
+   if(!/^\d{4}-\d{2}-\d{2}$/.test(saleDate))return alert('Invalid sale date');
+   if(Number(x.stock)<q)return alert('Not enough stock');
+   let oldStock=Number(x.stock), newStock=oldStock-q;
+   let up=await client.from('products').update({stock:newStock}).eq('id',x.id);
+   if(up.error){return alert('Stock save failed: '+up.error.message)}
+   let sale={date:saleDate,name:x.name,qty:q,price:Number(x.price),total:q*Number(x.price),pay:$('pay').value};
+   let ins=await client.from('sales').insert(sale);
+   if(ins.error){
+     await client.from('products').update({stock:oldStock}).eq('id',x.id);
+     return alert(ins.error.message);
+   }
+   $('qty').value=1;
+   $('saleDate').value=today();
+   await loadCloud();refresh();
+   toast(saleDate===today()?'Sale saved online. Stock reduced.':'Historical sale saved online. Stock reduced.');
+  } catch(e) { alert('Save failed: '+(e?.message||e)); console.error(e); }
+}
+
+
+async function addExpense(){
+  try {
+    const category=$('expenseCategory')?.value.trim()||'';
+    const detail=$('ed').value.trim();
+    const a=Number($('ea').value);
+    const expenseDate=$('expenseDate').value || today();
+    if(!category)return alert('Chagua aina ya matumizi.');
+    if(!detail)return alert('Andika maelezo ya matumizi.');
+    if(!Number.isFinite(a)||a<=0)return alert('Amount ya matumizi si sahihi.');
+    if(!/^\d{4}-\d{2}-\d{2}$/.test(expenseDate))return alert('Invalid expense date');
+    const desc=category+' - '+detail;
+    const r=await client.from('expenses').insert({date:expenseDate,desc,amount:a});
+    if(r.error)return alert(r.error.message);
+    $('ed').value=$('ea').value='';
+    if($('expenseCategory'))$('expenseCategory').value='';
+    await loadCloud();refresh();toast('Expense saved online');
+  } catch(e) { alert('Expense save failed: '+(e?.message||e)); console.error(e); }
+}
+
+
+function autoDebtPrice(){
+  const x=D.products.find(a=>String(a.id)===$('debtProduct').value);
+  $('debtPrice').value=x?x.price:'';
+}
+function debtDueDateText(v){
+  if(!v)return '-';
+  const d=new Date(v);
+  return isNaN(d)?v:d.toLocaleString('en-TZ',{dateStyle:'short',timeStyle:'short'});
+}
+function isDebtOverdue(x){
+  return String(x.status||'Unpaid').toLowerCase()!=='paid' && x.due_at && new Date(x.due_at).getTime()<=Date.now();
+}
+async function addDebt(){
+  try{
+    const customer=$('debtCustomer').value.trim(), phone=$('debtPhone').value.trim();
+    const p=D.products.find(a=>String(a.id)===$('debtProduct').value);
+    const q=Number($('debtQty').value), date=$('debtDate').value||today(), due=$('debtDue').value;
+    if(!customer||!phone||!p||q<1||!due)return alert('Jaza jina, simu, bidhaa, quantity na muda wa kulipa.');
+    if(Number(p.stock)<q)return alert('Stock haitoshi kwa deni hili.');
+    const oldStock=Number(p.stock), total=q*Number(p.price);
+    const up=await client.from('products').update({stock:oldStock-q}).eq('id',p.id);
+    if(up.error)return alert('Stock save failed: '+up.error.message);
+    const ins=await client.from('debts').insert({
+      customer,phone,product_id:String(p.id),product_name:p.name,qty:q,
+      price:Number(p.price),total,date,due_at:localTZDateTimeISO(due),status:'Unpaid'
+    });
+    if(ins.error){
+      await client.from('products').update({stock:oldStock}).eq('id',p.id);
+      return alert('Debt save failed: '+ins.error.message);
+    }
+    $('debtCustomer').value=$('debtPhone').value='';
+    $('debtQty').value=1;$('debtProduct').value='';$('debtPrice').value='';
+    await loadCloud();refresh();toast('Debt saved. Stock reduced.');
+  }catch(e){alert('Debt save failed: '+(e?.message||e));}
+}
+async function editDebt(i){
+  const x=D.debts[i];if(!x)return;
+  if(String(x.status).toLowerCase()==='paid')return alert('Paid debt haiwezi kuhaririwa.');
+  const customer=prompt('Customer name:',x.customer);if(customer===null)return;
+  const phone=prompt('Phone number:',x.phone);if(phone===null)return;
+  const prodName=prompt('Product name:',x.product_name);if(prodName===null)return;
+  const p=D.products.find(a=>a.name.toLowerCase()===prodName.trim().toLowerCase());if(!p)return alert('Product not found.');
+  const q=Number(prompt('Quantity:',x.qty));if(!Number.isFinite(q)||q<1)return alert('Invalid quantity.');
+  const due=prompt('Due date/time (YYYY-MM-DDTHH:MM):',String(x.due_at||'').slice(0,16));if(due===null)return;
+  if(!/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/.test(due))return alert('Invalid due date/time.');
+  const dueDate=new Date(due);if(isNaN(dueDate.getTime()))return alert('Invalid due date/time.');
+  const oldP=D.products.find(a=>String(a.id)===String(x.product_id));
+  if(!oldP)return alert('Original product not found.');
+  const oldStockBefore=Number(oldP.stock), newStockBefore=Number(p.stock);
+  const restored=oldStockBefore+Number(x.qty||0);
+  let same=String(oldP.id)===String(p.id);
+  if(same){
+    if(restored<q)return alert('Not enough stock.');
+    const r=await client.from('products').update({stock:restored-q}).eq('id',oldP.id);if(r.error)return alert(r.error.message);
+  }else{
+    if(newStockBefore<q)return alert('Not enough stock for new product.');
+    let r=await client.from('products').update({stock:restored}).eq('id',oldP.id);if(r.error)return alert(r.error.message);
+    r=await client.from('products').update({stock:newStockBefore-q}).eq('id',p.id);
+    if(r.error){await client.from('products').update({stock:oldStockBefore}).eq('id',oldP.id);await loadCloud();return alert(r.error.message);}
+  }
+  const r=await client.from('debts').update({
+    customer:customer.trim(),phone:phone.trim(),product_id:String(p.id),product_name:p.name,
+    qty:q,price:Number(p.price),total:q*Number(p.price),due_at:localTZDateTimeISO(due)
+  }).eq('id',x.id);
+  if(r.error){
+    if(same) await client.from('products').update({stock:oldStockBefore}).eq('id',oldP.id);
+    else { await client.from('products').update({stock:oldStockBefore}).eq('id',oldP.id); await client.from('products').update({stock:newStockBefore}).eq('id',p.id); }
+    await loadCloud();return alert('Debt update failed: '+r.error.message);
+  }
+  await loadCloud();refresh();toast('Debt updated.');
+}
+async function payDebt(i){
+  const x=D.debts[i];if(!x)return;
+  if(String(x.status).toLowerCase()==='paid')return alert('Deni hili tayari ni Paid.');
+  const method=prompt('Payment method: Cash / Merchant / Lipa','Cash');if(method===null)return;
+  const pay=['Cash','Merchant','Lipa'].includes(method)?method:'Cash';
+  if(!confirm(`Mark ${x.customer}'s debt of ${money(x.total)} TZS as PAID and add it to today's Sales?`))return;
+  const sale={date:today(),name:x.product_name,qty:Number(x.qty),price:Number(x.price),total:Number(x.total),pay};
+  const ins=await client.from('sales').insert(sale).select().single();
+  if(ins.error)return alert('Payment sale failed: '+ins.error.message);
+  const r=await client.from('debts').update({status:'Paid',paid_at:new Date().toISOString(),sale_id:String(ins.data?.id||'')}).eq('id',x.id);
+  if(r.error){
+    await client.from('sales').delete().eq('id',ins.data.id);
+    return alert('Debt update failed: '+r.error.message);
+  }
+  await loadCloud();refresh();toast('Debt paid and added to today’s Sales.');
+}
+async function deleteDebt(i){
+  const x=D.debts[i];if(!x)return;
+  if(String(x.status).toLowerCase()==='paid')return alert('Paid debt haiwezi kufutwa kwa sababu tayari imeingia kwenye Sales.');
+  if(!confirm(`Delete debt for ${x.customer}? Stock itarudishwa.`))return;
+  const p=D.products.find(a=>String(a.id)===String(x.product_id));
+  const oldStock=p?Number(p.stock):null;
+  if(p){
+    const r=await client.from('products').update({stock:oldStock+Number(x.qty||0)}).eq('id',p.id);
+    if(r.error)return alert(r.error.message);
+  }
+  const r=await client.from('debts').delete().eq('id',x.id);
+  if(r.error){
+    if(p)await client.from('products').update({stock:oldStock}).eq('id',p.id);
+    await loadCloud();return alert(r.error.message);
+  }
+  await loadCloud();refresh();toast('Debt deleted and stock restored.');
+}
+function printDebt(i){
+  const x=D.debts[i];if(!x)return;
+  const w=window.open('','_blank','width=500,height=700');if(!w)return alert('Allow pop-ups to print.');
+  w.document.write(`<!doctype html><html><head><meta charset="utf-8"><title>Debt Record</title><style>
+  @page{size:A4 portrait;margin:8mm}body{font-family:Arial;padding:8mm;font-size:13px}.center{text-align:center}
+  table{width:100%;border-collapse:collapse;margin-top:12px}td,th{border:1px solid #333;padding:7px;text-align:left}
+  .total{font-size:18px;font-weight:bold;margin-top:14px}.sign{margin-top:35px}*{page-break-inside:avoid}</style></head><body>
+  <div class="center"><h2 style="margin:0">ONE MAN STATIONERY</h2><div>DEBT RECORD</div><div>TIN: 123043553 • Tel: 0717768543</div></div>
+  <table><tr><th>Customer</th><td>${esc(x.customer)}</td></tr><tr><th>Phone</th><td>${esc(x.phone)}</td></tr>
+  <tr><th>Date</th><td>${esc(x.date)}</td></tr><tr><th>Product</th><td>${esc(x.product_name)}</td></tr>
+  <tr><th>Quantity</th><td>${x.qty}</td></tr><tr><th>Due</th><td>${esc(debtDueDateText(x.due_at))}</td></tr>
+  <tr><th>Status</th><td>${esc(x.status)}</td></tr></table>
+  <div class="total">TOTAL DEBT: ${money(x.total)} TZS</div><div class="sign">Customer signature: ____________________</div>
+  <script>window.onload=()=>window.print()<\/script>
+<script>
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => navigator.serviceWorker.register('./sw.js').catch(()=>{}));
+}
+</script>
+</body></html>`);
+  w.document.close();
+}
+function renderDebts(){
+  const unpaid=D.debts.filter(x=>String(x.status).toLowerCase()!=='paid');
+  const outstanding=unpaid.reduce((a,x)=>a+Number(x.total||0),0);
+  const overdue=unpaid.filter(isDebtOverdue).length;
+  $('debtSummary').innerHTML=`
+    <div class="stat debt-card">💳 Outstanding<br><b>${money(outstanding)}</b> TZS</div>
+    <div class="stat">👥 Unpaid Debts<br><b>${unpaid.length}</b></div>
+    <div class="stat">⏰ Overdue<br><b class="${overdue?'overdue':'paid'}">${overdue}</b></div>`;
+  const rows=D.debts.map((x,i)=>{
+    const paid=String(x.status).toLowerCase()==='paid', late=isDebtOverdue(x);
+    return `<tr><td>${esc(x.date)}</td><td>${esc(x.customer)}</td><td>${esc(x.phone)}</td><td>${esc(x.product_name)}</td>
+      <td>${x.qty}</td><td>${money(x.total)}</td><td>${esc(debtDueDateText(x.due_at))}</td>
+      <td class="${paid?'paid':late?'overdue':''}">${paid?'PAID':late?'OVERDUE':'UNPAID'}</td>
+      <td class="actions">${!paid?`<button onclick="payDebt(${i})" class="green">Paid</button> <button onclick="editDebt(${i})">Edit</button>`:''}
+      <button onclick="deleteDebt(${i})" class="danger">Delete</button> <button onclick="printDebt(${i})">Print</button></td></tr>`;
+  }).join('');
+  $('debtlist').innerHTML=`<table><tr><th>Date</th><th>Customer</th><th>Phone</th><th>Product</th><th>Qty</th><th>Total</th><th>Due</th><th>Status</th><th>Actions</th></tr>
+    ${rows||'<tr><td colspan="9" class="muted">No debts recorded.</td></tr>'}</table>`;
+}
+function checkDebtAlerts(){
+  const overdue=D.debts.filter(isDebtOverdue);
+  if(!overdue.length)return toast('No overdue debts.');
+  alert('DEBT ALERT: '+overdue.map(x=>`${x.customer} — ${money(x.total)} TZS — due ${debtDueDateText(x.due_at)}`).join('\n'));
+}
+
+async function editSale(i){
+  const x=D.sales[i];if(!x)return;
+  const oldProd=D.products.find(p=>p.name===x.name);if(!oldProd)return alert('Original product not found.');
+  const date=prompt('Sale date (YYYY-MM-DD):',x.date);if(date===null)return;
+  if(!/^\d{4}-\d{2}-\d{2}$/.test(date))return alert('Invalid sale date.');
+  const name=prompt('Product name:',x.name);if(name===null)return;
+  const prodx=D.products.find(p=>p.name.toLowerCase()===name.trim().toLowerCase());if(!prodx)return alert('Product not found.');
+  const q=Number(prompt('Quantity:',x.qty));if(!Number.isFinite(q)||q<1)return alert('Invalid quantity.');
+  const pr=Number(prompt('Unit price:',x.price));if(!Number.isFinite(pr)||pr<0)return alert('Invalid price.');
+  const payment=prompt('Payment method (Cash / Merchant / Lipa):',x.pay);if(payment===null)return;
+  const pay=['Cash','Merchant','Lipa'].includes(payment)?payment:x.pay;
+  const oldStockBefore=Number(oldProd.stock), newStockBefore=Number(prodx.stock), oldQty=Number(x.qty||0);
+  const same=String(oldProd.id)===String(prodx.id);
+  if(same){
+    const restored=oldStockBefore+oldQty;if(restored<q)return alert('Not enough stock for the edited sale.');
+    const r=await client.from('products').update({stock:restored-q}).eq('id',oldProd.id);if(r.error)return alert(r.error.message);
+  }else{
+    if(newStockBefore<q)return alert('Not enough stock for the new product.');
+    let r=await client.from('products').update({stock:oldStockBefore+oldQty}).eq('id',oldProd.id);if(r.error)return alert(r.error.message);
+    r=await client.from('products').update({stock:newStockBefore-q}).eq('id',prodx.id);
+    if(r.error){await client.from('products').update({stock:oldStockBefore}).eq('id',oldProd.id);await loadCloud();return alert(r.error.message);}
+  }
+  const r3=await client.from('sales').update({date,name:prodx.name,qty:q,price:pr,total:q*pr,pay}).eq('id',x.id);
+  if(r3.error){
+    if(same)await client.from('products').update({stock:oldStockBefore}).eq('id',oldProd.id);
+    else{await client.from('products').update({stock:oldStockBefore}).eq('id',oldProd.id);await client.from('products').update({stock:newStockBefore}).eq('id',prodx.id);}
+    await loadCloud();return alert('Sale update failed: '+r3.error.message);
+  }
+  await loadCloud();refresh();toast('Sale updated online');
+}
+async function editExpense(i){
+  const x=D.expenses[i];if(!x)return;
+  const date=prompt('Expense date (YYYY-MM-DD):',x.date);if(date===null)return;
+  if(!/^\d{4}-\d{2}-\d{2}$/.test(date))return alert('Invalid expense date.');
+  let currentCategory='',currentDetail=x.desc||'';
+  const sep=currentDetail.indexOf(' - ');
+  if(sep>0){currentCategory=currentDetail.slice(0,sep);currentDetail=currentDetail.slice(sep+3);}
+  const category=prompt('Category:',currentCategory||'Matumizi mengine');if(category===null)return;
+  const desc=prompt('Maelezo:',currentDetail);if(desc===null)return;
+  const amount=Number(prompt('Amount:',x.amount));
+  if(!category.trim()||!desc.trim()||!Number.isFinite(amount)||amount<=0)return alert('Invalid expense details.');
+  const r=await client.from('expenses').update({date,desc:category.trim()+' - '+desc.trim(),amount}).eq('id',x.id);
+  if(r.error)return alert(r.error.message);await loadCloud();refresh();toast('Expense updated online');
+}
+async function deleteSale(i){
+  const x=D.sales[i];if(!x||!confirm('Delete this sale? Stock will be returned.'))return;
+  const p=D.products.find(a=>a.name===x.name);const oldStock=p?Number(p.stock):null;
+  if(p){const r=await client.from('products').update({stock:oldStock+Number(x.qty||0)}).eq('id',p.id);if(r.error)return alert(r.error.message);}
+  const r=await client.from('sales').delete().eq('id',x.id);
+  if(r.error){if(p)await client.from('products').update({stock:oldStock}).eq('id',p.id);await loadCloud();return alert(r.error.message);}
+  await loadCloud();refresh();toast('Sale deleted online and stock restored');
+}
+async function deleteExpense(i){
+  let x=D.expenses[i];if(!x||!confirm('Delete this expense?'))return;
+  let r=await client.from('expenses').delete().eq('id',x.id);if(r.error)return alert(r.error.message);
+  await loadCloud();refresh();toast('Expense deleted online');
+}
+async function editBuying(i){
+  let x=D.products[i];if(!x)return;let b=Number(prompt('Buying price:',x.buying||0));
+  if(!Number.isFinite(b)||b<0)return alert('Invalid buying price.');
+  let r=await client.from('products').update({buying:b}).eq('id',x.id);if(r.error)return alert(r.error.message);
+  await loadCloud();refresh();toast('Buying price updated online');
+}
+async function deleteBuying(i){
+  let x=D.products[i];if(!x||!confirm('Delete this product and its buying price?'))return;
+  let used=D.sales.some(s=>s.name===x.name);if(used)return alert('This product has sales. Delete/edit its sales first, or keep the product.');
+  let r=await client.from('products').delete().eq('id',x.id);if(r.error)return alert(r.error.message);
+  await loadCloud();refresh();toast('Product deleted online');
+}
+function printBuying(i){
+  let x=D.products[i];if(!x)return;let w=window.open('','_blank','width=650,height=500');if(!w)return alert('Allow pop-ups to print.');
+  w.document.write(`<!doctype html><html><head><title>Buying Price - One Man Stationery</title><style>body{font-family:Arial;padding:25px}.center{text-align:center}table{width:100%;border-collapse:collapse;margin-top:20px}th,td{border:1px solid #333;padding:10px;text-align:left}</style></head><body><div class='center'><h2>ONE MAN STATIONERY</h2><p>Buying Price Record</p></div><table><tr><th>Product</th><th>Buying Price</th><th>Stock</th><th>Date</th></tr><tr><td>${esc(x.name)}</td><td>${money(x.buying)} TZS</td><td>${x.stock}</td><td>${today()}</td></tr></table><script>window.onload=()=>window.print()<\/script></body></html>`);w.document.close();
+}
+
+function printExpense(i){
+  let x=D.expenses[i];if(!x)return;
+  let w=window.open('','_blank','width=650,height=500');if(!w)return alert('Allow pop-ups to print.');
+  w.document.write(`<!doctype html><html><head><meta charset='utf-8'><title>Expense - One Man Stationery</title><style>@page{size:A4 portrait;margin:10mm}html,body{margin:0;padding:0}body{font-family:Arial;padding:15mm;box-sizing:border-box;height:277mm;overflow:hidden}.center{text-align:center}table{width:100%;border-collapse:collapse;margin-top:20px}th,td{border:1px solid #333;padding:10px;text-align:left}*{page-break-inside:avoid}</style></head><body><div class='center'><h2>ONE MAN STATIONERY</h2><p>Expense Record</p></div><table><tr><th>Date</th><th>Description</th><th>Amount</th></tr><tr><td>${esc(x.date)}</td><td>${esc(x.desc)}</td><td>${money(x.amount)} TZS</td></tr></table><script>window.onload=()=>window.print()<\/script></body></html>`);
+  w.document.close();
+}
+
+function getExpenseRange(){
+  let f=$('expenseFrom')?.value||'',t=$('expenseTo')?.value||'';
+  if(!f||!t)return {f,t,items:[]};
+  if(f>t){alert('From date cannot be after To date.');return {f,t,items:[]};}
+  return {f,t,items:D.expenses.map((x,i)=>({x,i})).filter(o=>o.x.date>=f&&o.x.date<=t)};
+}
+function renderExpenses(items){
+  $('explist').innerHTML='<table><tr><th>Date</th><th>Description</th><th>Amount</th><th>Actions</th></tr>'+items.map(o=>{let x=o.x,i=o.i;return `<tr><td>${x.date}</td><td>${esc(x.desc)}</td><td>${money(x.amount)}</td><td><button onclick="editExpense(${i})">Edit</button> <button onclick="deleteExpense(${i})" class="danger">Delete</button> <button onclick="printExpense(${i})" class="green">Print</button></td></tr>`}).join('')+'</table>'+(items.length?`<div style="margin-top:10px"><b>Total Expenses: ${money(items.reduce((a,o)=>a+Number(o.x.amount),0))} TZS</b></div>`:'<p class="muted">No expenses found in this date range.</p>');
+}
+function generateExpenses(){
+  let r=getExpenseRange();if(!r.f||!r.t||r.f>r.t)return;
+  renderExpenses(r.items);
+}
+function printExpenses(){
+  let r=getExpenseRange();if(!r.f||!r.t||r.f>r.t)return;
+  let total=r.items.reduce((a,o)=>a+Number(o.x.amount),0);
+  let rows=r.items.map(o=>`<tr><td>${esc(o.x.date)}</td><td>${esc(o.x.desc)}</td><td>${money(o.x.amount)} TZS</td></tr>`).join('');
+  let w=window.open('','_blank','width=800,height=700');if(!w)return alert('Allow pop-ups to print.');
+  w.document.write(`<!doctype html><html><head><meta charset='utf-8'><title>Expense Report</title><style>@page{size:A4 portrait;margin:8mm}html,body{margin:0;padding:0}body{font-family:Arial;padding:8mm;box-sizing:border-box;height:277mm;overflow:hidden;font-size:12px}.center{text-align:center}.range{text-align:center;margin:8px 0 14px}table{width:100%;border-collapse:collapse}th,td{border:1px solid #333;padding:6px;text-align:left}th{background:#eee}.total{margin-top:12px;font-size:15px;font-weight:bold}*{page-break-inside:avoid}</style></head><body><div class='center'><h2 style='margin:0'>ONE MAN STATIONERY</h2><div>EXPENSE REPORT</div></div><div class='range'>From <b>${esc(r.f)}</b> To <b>${esc(r.t)}</b></div><table><tr><th>Date</th><th>Description</th><th>Amount</th></tr>${rows||'<tr><td colspan="3">No expenses found</td></tr>'}</table><div class='total'>TOTAL EXPENSES: ${money(total)} TZS</div><script>window.onload=()=>window.print()<\/script></body></html>`);
+  w.document.close();
+}
+
+function refresh(){
+  syncCurrentDate();
+  renderYearComparison();
+  $('prod').innerHTML='<option value="">Select product</option>'+D.products.map(x=>`<option>${esc(x.name)}</option>`).join('');
+  if($('debtProduct')) $('debtProduct').innerHTML='<option value="">Chagua bidhaa</option>'+D.products.map(x=>`<option value="${esc(x.id)}">${esc(x.name)} — ${money(x.price)} TZS (Stock ${x.stock})</option>`).join('');
+  if($('debtPrice') && $('debtProduct')?.value) autoDebtPrice();
+
+  let t=today(),s=D.sales.filter(x=>x.date===t),e=D.expenses.filter(x=>x.date===t);
+  let sv=s.reduce((a,x)=>a+Number(x.total),0),ev=e.reduce((a,x)=>a+Number(x.amount),0),it=s.reduce((a,x)=>a+Number(x.qty),0);
+  let cash=s.filter(x=>x.pay==='Cash').reduce((a,x)=>a+Number(x.total),0),merchant=s.filter(x=>x.pay==='Merchant').reduce((a,x)=>a+Number(x.total),0),lipa=s.filter(x=>x.pay==='Lipa').reduce((a,x)=>a+Number(x.total),0);
+  const outstandingDebts=D.debts.filter(x=>String(x.status||'Unpaid').toLowerCase()!=='paid').reduce((a,x)=>a+Number(x.total||0),0);
+  $('ddebts').textContent=money(outstandingDebts);
+  $('ds').textContent=money(sv);$('di').textContent=it;$('dcash').textContent=money(cash);$('dmerchant').textContent=money(merchant);$('dlipa').textContent=money(lipa);$('de').textContent=money(ev);$('dp').textContent=money(sv-ev);
+  $('todaySummary').innerHTML=s.length?`<b>${s.length}</b> transaction(s) &nbsp; | &nbsp; <b>${it}</b> items &nbsp; | &nbsp; <b>${money(sv)} TZS</b> total sales`:'No sales yet today.';
+  let low=D.products.filter(x=>Number(x.stock)<=Number(x.min));
+  $('stockAlert').innerHTML=low.length?'<b>⚠ LOW STOCK ALERT</b><br>'+low.map(x=>`${esc(x.name)}: ${x.stock} left (minimum ${x.min})`).join(' &nbsp; | &nbsp; '):'🟢 All stock levels are above minimum.';
+  $('stocklist').innerHTML='<table><tr><th>Product</th><th>Buying</th><th>Price</th><th>Stock</th><th>Minimum</th><th>Status</th></tr>'+D.products.map(x=>`<tr><td>${esc(x.name)}</td><td>${money(x.buying)}</td><td>${money(x.price)}</td><td>${x.stock}</td><td>${x.min}</td><td>${Number(x.stock)===0?'🔴 OUT OF STOCK':Number(x.stock)<=Number(x.min)?'🟡 LOW STOCK':'🟢 OK'}</td></tr>`).join('')+'</table>';
+  $('buylist').innerHTML='<table><tr><th>Product</th><th>Buying Price</th><th>Current Stock</th><th>Actions</th></tr>'+D.products.map((x,i)=>`<tr><td>${esc(x.name)}</td><td>${money(x.buying)}</td><td>${x.stock}</td><td><button onclick="editBuying(${i})">Edit</button> <button onclick="deleteBuying(${i})" class="danger">Delete</button> <button onclick="printBuying(${i})" class="green">Print</button></td></tr>`).join('')+'</table>';
+  renderSales(D.sales.slice(0,30));
+  let ef=$('expenseFrom')?.value||today(),et=$('expenseTo')?.value||today();if(ef<=et){renderExpenses(D.expenses.map((x,i)=>({x,i})).filter(o=>o.x.date>=ef&&o.x.date<=et));}else{$('explist').innerHTML='<p class="muted">Select a valid From and To date.</p>';}
+  if($('debtDate')&&!$('debtDate').value)$('debtDate').value=today();
+  renderDebts();
+  checkDebtAlertsSilent();
+}
+
+function checkDebtAlertsSilent(){  const overdue=D.debts.filter(isDebtOverdue);
+  if(!overdue.length)return;
+  const key=today()+':'+overdue.map(x=>x.id).join(',');
+  if(sessionStorage.getItem('debtAlertKey')===key)return;
+  sessionStorage.setItem('debtAlertKey',key);
+  toast(`⚠ ${overdue.length} debt(s) are overdue. Open Debts to review.`,false);
+}
+function getSalesRange(){
+  let f=$('salesFrom').value,t=$('salesTo').value;
+  if(!f||!t){alert('Select From Date and To Date');return {f:'',t:'',items:[]};}
+  if(f>t){alert('From Date cannot be after To Date');return {f:'',t:'',items:[]};}
+  return {f,t,items:D.sales.filter(x=>x.date>=f&&x.date<=t)};
+}
+function renderSales(items){
+  $('salelist').innerHTML='<table><tr><th>Date</th><th>Product</th><th>Qty</th><th>Total</th><th>Payment</th><th>Actions</th></tr>'+
+    items.map(x=>{let i=D.sales.indexOf(x);return `<tr><td>${x.date}</td><td>${esc(x.name)}</td><td>${x.qty}</td><td>${money(x.total)}</td><td>${esc(x.pay)}</td><td><button onclick="editSale(${i})">Edit</button> <button onclick="deleteSale(${i})" class="danger">Delete</button> <button onclick="printReceipt(${i})">Print</button> <button onclick="saveReceiptPDF(${i})" class="green">PDF</button> <button onclick="saveReceiptImage(${i})" class="green">Image</button> <button onclick="shareReceipt(${i})" class="green">Share</button></td></tr>`}).join('')+
+    '</table>';
+}
+function generateSales(){
+  let r=getSalesRange();if(!r.f||!r.t)return;
+  renderSales(r.items);
+}
+function printSales(){
+  let r=getSalesRange();if(!r.f||!r.t)return;
+  let total=r.items.reduce((a,o)=>a+Number(o.total),0);
+  let qty=r.items.reduce((a,o)=>a+Number(o.qty),0);
+  let rows=r.items.map(x=>`<tr><td>${esc(x.date)}</td><td>${esc(x.name)}</td><td>${x.qty}</td><td>${money(x.total)} TZS</td><td>${esc(x.pay)}</td></tr>`).join('');
+  let w=window.open('','_blank','width=800,height=700');if(!w)return alert('Allow pop-ups to print.');
+  w.document.write(`<!doctype html><html><head><meta charset='utf-8'><title>Sales Report</title><style>@page{size:A4 portrait;margin:8mm}html,body{margin:0;padding:0}body{font-family:Arial;padding:8mm;box-sizing:border-box;height:277mm;overflow:hidden;font-size:12px}.center{text-align:center}.range{text-align:center;margin:8px 0 14px}table{width:100%;border-collapse:collapse}th,td{border:1px solid #333;padding:5px;text-align:left}th{background:#eee}.total{margin-top:10px;font-size:14px;font-weight:bold}*{page-break-inside:avoid}</style></head><body><div class='center'><h2 style='margin:0'>ONE MAN STATIONERY</h2><div>SALES REPORT</div></div><div class='range'>From <b>${esc(r.f)}</b> To <b>${esc(r.t)}</b></div><table><tr><th>Date</th><th>Product</th><th>Qty</th><th>Total</th><th>Payment</th></tr>${rows||'<tr><td colspan="5">No sales found in this period.</td></tr>'}</table><div class='total'>Total Items: ${qty} &nbsp; | &nbsp; Total Sales: ${money(total)} TZS</div><script>window.onload=()=>window.print()<\/script></body></html>`);
+  w.document.close();
+}
+
+function receiptHTML(x,autoPrint=false){return `<!doctype html><html><head><meta charset='utf-8'><title>Receipt - One Man Stationery</title><style>@page{size:72mm auto;margin:3mm}body{font-family:Arial,sans-serif;width:72mm;margin:0 auto;padding:8px;color:#111;box-sizing:border-box}.tools{display:flex;gap:5px;margin-bottom:10px;flex-wrap:wrap}.tools button{border:0;padding:7px 8px;border-radius:5px;background:#263238;color:#fff;cursor:pointer}.tools .green{background:#2e7d32}.center{text-align:center}.line{border-top:1px dashed #555;margin:8px 0}.total{font-size:18px;font-weight:bold}.small{font-size:12px}.thank{margin-top:18px;font-weight:bold;font-size:15px}.share-note{font-size:11px;color:#555;text-align:center;margin:6px 0 10px}@media print{.tools,.share-note{display:none!important}body{padding:0}}</style></head><body><div class='tools'><button class='green' onclick='shareReceipt()'>Share</button><button class='green' onclick='savePDF()'>Save PDF</button><button class='green' onclick='saveImage()'>Save Image</button><button onclick='window.print()'>Print</button></div><div class='share-note'>Share kupitia WhatsApp, Telegram, Email au app yoyote inayoruhusiwa na kifaa chako.</div><div id='receipt' class='receipt'><div class='center'><h2 style='margin:2px 0'>ONE MAN STATIONERY</h2><div class='small'>TIN: 123043553</div><div class='small'>Bariadi, Simiyu</div><div class='small'>Tel: 0717768543</div></div><div class='line'></div><div>Date: ${esc(x.date)}</div><div>Payment: ${esc(x.pay)}</div><div class='line'></div><div><b>${esc(x.name)}</b></div><div>Quantity: ${x.qty}</div><div>Amount: ${money(x.total)} TZS</div><div class='line'></div><div class='total'>TOTAL: ${money(x.total)} TZS</div><div class='center thank'>THANK YOU!</div><div class='center'>Karibu tena One Man Stationery</div></div><script>
+function receiptSVG(){return '<svg xmlns="http://www.w3.org/2000/svg" width="720" height="560" viewBox="0 0 720 560"><rect width="100%" height="100%" fill="white"/><style>text{font-family:Arial,sans-serif;fill:#111}.c{text-anchor:middle}</style><text x="360" y="45" font-size="30" font-weight="700" class="c">ONE MAN STATIONERY</text><text x="360" y="72" font-size="18" class="c">TIN: 123043553</text><text x="360" y="98" font-size="18" class="c">Bariadi, Simiyu</text><text x="360" y="124" font-size="18" class="c">Tel: 0717768543</text><line x1="25" y1="145" x2="695" y2="145" stroke="#555" stroke-dasharray="8 6"/><text x="25" y="180" font-size="19">Date: '+${JSON.stringify(esc(x.date))}+'</text><text x="25" y="210" font-size="19">Payment: '+${JSON.stringify(esc(x.pay))}+'</text><line x1="25" y1="235" x2="695" y2="235" stroke="#555" stroke-dasharray="8 6"/><text x="25" y="275" font-size="22" font-weight="700">'+${JSON.stringify(esc(x.name))}+'</text><text x="25" y="310" font-size="19">Quantity: '+${JSON.stringify(String(x.qty))}+'</text><text x="25" y="345" font-size="19">Amount: '+${JSON.stringify(money(x.total)+' TZS')}+'</text><line x1="25" y1="375" x2="695" y2="375" stroke="#555" stroke-dasharray="8 6"/><text x="25" y="425" font-size="28" font-weight="700">TOTAL: '+${JSON.stringify(money(x.total)+' TZS')}+'</text><text x="360" y="480" font-size="23" font-weight="700" class="c">THANK YOU!</text><text x="360" y="510" font-size="18" class="c">Karibu tena One Man Stationery</text></svg>'}
+function makeImageBlob(){return new Promise(function(resolve,reject){var blob=new Blob([receiptSVG()],{type:'image/svg+xml;charset=utf-8'}),url=URL.createObjectURL(blob),img=new Image();img.onload=function(){try{var c=document.createElement('canvas');c.width=720;c.height=560;var ctx=c.getContext('2d');ctx.fillStyle='white';ctx.fillRect(0,0,c.width,c.height);ctx.drawImage(img,0,0);URL.revokeObjectURL(url);c.toBlob(function(b){b?resolve(b):reject(new Error('Image creation failed'))},'image/png')}catch(e){reject(e)}};img.onerror=function(){URL.revokeObjectURL(url);reject(new Error('Image creation failed'))};img.src=url})}
+async function saveImage(){try{var b=await makeImageBlob();var link=document.createElement('a');link.download='Receipt-'+${JSON.stringify(esc(x.date))}+'-'+${JSON.stringify(esc(x.name))}+'.png';link.href=URL.createObjectURL(b);link.click();setTimeout(function(){URL.revokeObjectURL(link.href)},1000)}catch(e){alert('Could not create receipt image: '+e.message)}}
+async function shareReceipt(){try{var b=await makeImageBlob();var file=new File([b],'Receipt-'+${JSON.stringify(esc(x.date))}+'-'+${JSON.stringify(esc(x.name))}+'.png',{type:'image/png'});var text='One Man Stationery Receipt\nProduct: '+${JSON.stringify(esc(x.name))}+'\nQty: '+${JSON.stringify(String(x.qty))}+'\nTotal: '+${JSON.stringify(money(x.total)+' TZS')}+'\nDate: '+${JSON.stringify(esc(x.date))};if(navigator.share){if(navigator.canShare&&navigator.canShare({files:[file]})){await navigator.share({title:'One Man Stationery Receipt',text:text,files:[file]})}else{await navigator.share({title:'One Man Stationery Receipt',text:text})}}else{if(navigator.clipboard&&navigator.clipboard.writeText)await navigator.clipboard.writeText(text);alert('Browser hii haina Share menu. Receipt details zime-copy; unaweza ku-paste WhatsApp au app nyingine.')}}catch(e){if(e&&e.name!=='AbortError')alert('Share failed: '+(e.message||e))}
+}
+if(${autoPrint?'true':'false'})window.addEventListener('load',function(){setTimeout(function(){window.print()},250)});
+<\/script></body></html>`}
+function openReceipt(i,mode='print'){let x=D.sales[i];if(!x)return alert('Receipt not found');let w=window.open('','_blank','width=420,height=720');if(!w)return alert('Allow pop-ups');w.document.write(receiptHTML(x,false));w.document.close();if(mode==='pdf')setTimeout(function(){w.print()},350);else if(mode==='image')setTimeout(function(){w.saveImage()},350)}
+function printReceipt(i){openReceipt(i,'print')}
+function saveReceiptPDF(i){openReceipt(i,'pdf')}
+function saveReceiptImage(i){openReceipt(i,'image')}
+function shareReceipt(i){openReceipt(i,'share')}
+function printLastReceipt(){if(!D.sales.length)return alert('No sale available');printReceipt(0)}
+
+function report(){
+  let f=$('from').value,t=$('to').value;if(!f||!t)return alert('Select dates');
+  let s=D.sales.filter(x=>x.date>=f&&x.date<=t),e=D.expenses.filter(x=>x.date>=f&&x.date<=t),sv=s.reduce((a,x)=>a+Number(x.total),0),ev=e.reduce((a,x)=>a+Number(x.amount),0),it=s.reduce((a,x)=>a+Number(x.qty),0);
+  let cash=s.filter(x=>x.pay==='Cash').reduce((a,x)=>a+Number(x.total),0),merchant=s.filter(x=>x.pay==='Merchant').reduce((a,x)=>a+Number(x.total),0),lipa=s.filter(x=>x.pay==='Lipa').reduce((a,x)=>a+Number(x.total),0);
+  $('rs').textContent=money(sv);$('ri').textContent=it;$('rcash').textContent=money(cash);$('rmerchant').textContent=money(merchant);$('rlipa').textContent=money(lipa);$('re').textContent=money(ev);$('rp').textContent=money(sv-ev);
+  $('rdetails').innerHTML='<h3>Sales</h3><table><tr><th>Date</th><th>Product</th><th>Qty</th><th>Total</th><th>Payment</th></tr>'+s.map(x=>`<tr><td>${x.date}</td><td>${esc(x.name)}</td><td>${x.qty}</td><td>${money(x.total)}</td><td>${esc(x.pay)}</td></tr>`).join('')+'</table>';
+}
+
+async function start(){
+  if($('saleDate')) $('saleDate').value=today();
+  if($('expenseDate')) $('expenseDate').value=today();
+  if($('expenseCategory')) $('expenseCategory').value='';
+  if($('salesFrom')) $('salesFrom').value=today();
+  if($('salesTo')) $('salesTo').value=today();
+  if($('expenseFrom')) $('expenseFrom').value=today();
+  if($('expenseTo')) $('expenseTo').value=today();
+  if($('debtDate')) $('debtDate').value=today();
+  initDateFilters();
+  renderYearComparison();
+  if($('expenseDate')) $('expenseDate').value=today();
+  if($('debtDate')) $('debtDate').value=today();
+  const {data:{session}}=await client.auth.getSession();
+  if(session){currentUser=session.user;await loginBox()}
+  client.auth.onAuthStateChange((_event,session)=>{if(!session){$('app').classList.add('hide');$('login').classList.remove('hide')}});
+}
+setInterval(async()=>{if(currentUser&&!document.hidden){try{await loadCloud();refresh()}catch(e){console.error(e)}}},5000);
+start();
+</script>
+</body></html>

@@ -1,0 +1,9 @@
+{
+  "appId": "com.oneman.smartpos",
+  "appName": "One Man Smart POS",
+  "webDir": "www",
+  "bundledWebRuntime": false,
+  "server": {
+    "androidScheme": "https"
+  }
+}
